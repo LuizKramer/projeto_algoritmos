@@ -53,17 +53,17 @@ void loadGraph(const char *filename) {
 
     fclose(file);
 }
-
-int greedy_atsp(int start) {
+int greedy_atsp(int start, int *path) {
     int min;
     int currentCity = start;
     int visited[N];
     int totalCost = 0;
+    int idx = 0;
 
     for (int i = 0; i < N; i++) visited[i] = 0;
-    visited[currentCity] = 1;
 
-    printf("\nCaminho Percorrido: %d->", start);
+    visited[currentCity] = 1;
+    path[idx++] = currentCity;
 
     for (int i = 0; i < N - 1; i++) {
         min = INF;
@@ -84,19 +84,64 @@ int greedy_atsp(int start) {
         visited[nextCity] = 1;
         totalCost += min;
         currentCity = nextCity;
-
-        printf("%d->", nextCity);
+        path[idx++] = nextCity;
     }
 
     totalCost += cost[currentCity][start];
-    printf("%d (custo: %d)\n", start, cost[currentCity][start]);
 
     return totalCost;
 }
+
 
 void freeGraph(void) {
     for (int i = 0; i < N; i++) {
         free(cost[i]);
     }
     free(cost);
+}
+
+int calculatePathCost(int *path, int pathLen) {
+    int totalCost = 0;
+    for (int i = 0; i < pathLen - 1; i++) {
+        totalCost += cost[path[i]][path[i + 1]];
+    }
+    totalCost += cost[path[pathLen - 1]][path[0]]; // volta ao início
+    return totalCost;
+}
+
+int local_search_2opt(int *path, int pathLen) {
+    int improved = 1;
+
+    while (improved) {
+        improved = 0;
+        for (int i = 1; i < pathLen - 1; i++) {
+            for (int j = i + 1; j < pathLen; j++) {
+                // Evita troca de início
+                if (j - i == 1) continue;
+
+                // Calcula o custo atual
+                int A = path[i - 1], B = path[i];
+                int C = path[j], D = path[(j + 1) % pathLen];
+
+                int before = cost[A][B] + cost[C][D];
+                int after  = cost[A][C] + cost[B][D];
+
+                if (after < before) {
+                    // Inverte segmento [i, j]
+                    while (i < j) {
+                        int temp = path[i];
+                        path[i] = path[j];
+                        path[j] = temp;
+                        i++;
+                        j--;
+                    }
+                    improved = 1;
+                    break;
+                }
+            }
+            if (improved) break;
+        }
+    }
+
+    return calculatePathCost(path, pathLen);
 }
