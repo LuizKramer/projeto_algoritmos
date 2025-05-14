@@ -1,11 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "atsp.h"
 
-#define INF 9999
-
-int **cost;
-int N;
+int **cost = NULL;
+int N = 0;
 
 void loadGraph(const char *filename) {
     FILE *file = fopen(filename, "r");
@@ -18,7 +17,6 @@ void loadGraph(const char *filename) {
     int row = 0, col = 0;
     int readingMatrix = 0;
 
-    // Lendo a dimensão do grafo
     while (fgets(line, sizeof(line), file)) {
         if (strstr(line, "DIMENSION")) {
             sscanf(line, "DIMENSION: %d", &N);
@@ -26,13 +24,11 @@ void loadGraph(const char *filename) {
         }
     }
 
-    // Alocando memória para a matriz de custos
     cost = (int **)malloc(N * sizeof(int *));
     for (int i = 0; i < N; i++) {
         cost[i] = (int *)malloc(N * sizeof(int));
     }
 
-    // Recomeçando a leitura para encontrar a seção de pesos
     rewind(file);
     while (fgets(line, sizeof(line), file)) {
         if (strstr(line, "EDGE_WEIGHT_SECTION")) {
@@ -41,7 +37,6 @@ void loadGraph(const char *filename) {
         }
         if (strstr(line, "EOF")) break;
 
-        // Preenchendo a matriz de custos
         if (readingMatrix) {
             char *token = strtok(line, " \t\n");
             while (token != NULL) {
@@ -59,33 +54,21 @@ void loadGraph(const char *filename) {
     fclose(file);
 }
 
-int isNotVisited(int visited[], int city, int visitedCount) {
-    for (int i = 0; i < visitedCount; i++) {
-        if (visited[i] == city) {
-            return 0;
-        }
-    }
-    return 1;
-}
-
 int greedy_atsp(int start) {
     int min;
     int currentCity = start;
     int visited[N];
     int totalCost = 0;
-    int visitedCount = 1;
 
-    // Inicializa o vetor de visitados
     for (int i = 0; i < N; i++) visited[i] = 0;
     visited[currentCity] = 1;
 
-    printf("Cidades Visitadas: %d->", start);
+    printf("\nCaminho Percorrido: %d->", start);
 
     for (int i = 0; i < N - 1; i++) {
         min = INF;
         int nextCity = -1;
 
-        // Encontra a próxima cidade com o menor custo
         for (int j = 0; j < N; j++) {
             if (!visited[j] && cost[currentCity][j] < min) {
                 min = cost[currentCity][j];
@@ -98,42 +81,22 @@ int greedy_atsp(int start) {
             return -1;
         }
 
-        // Marca como visitada e atualiza o custo total
         visited[nextCity] = 1;
         totalCost += min;
         currentCity = nextCity;
-        visitedCount++;
 
-        // Imprime a cidade visitada
         printf("%d->", nextCity);
     }
 
-    // Fecha o ciclo voltando para a cidade inicial
     totalCost += cost[currentCity][start];
-    printf("%d\n", start);
+    printf("%d (custo: %d)\n", start, cost[currentCity][start]);
 
     return totalCost;
 }
 
-
-
-void freeGraph() {
+void freeGraph(void) {
     for (int i = 0; i < N; i++) {
         free(cost[i]);
     }
     free(cost);
-}
-
-int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        printf("Uso: %s <arquivo_atsp>\n", argv[0]);
-        return 1;
-    }
-
-    loadGraph(argv[1]);
-
-    printf("Custo Total: %d\n", greedy_atsp(0));
-
-    freeGraph();
-    return 0;
 }
