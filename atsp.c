@@ -176,7 +176,11 @@ int tabu_search(int *path, int pathLen, int tabu_list_size, int max_iterations) 
             int temp = path[best_i];
             path[best_i] = path[best_j];
             path[best_j] = temp;
-
+            printf("Iteração %d: ", iteration);
+            for (int i = 0; i < pathLen; i++) {
+                printf("%d ", path[i]);
+            }   
+            printf("| Custo: %d\n", calculatePathCost(path, pathLen));
             // Atualiza a lista tabu
             tabuList[tabuIndex].city1 = path[best_i];
             tabuList[tabuIndex].city2 = path[best_j];
