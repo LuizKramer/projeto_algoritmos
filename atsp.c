@@ -56,7 +56,13 @@ void loadGraph(const char *filename) {
     fclose(file);
 }
 
-// Heurística gulosa para inicializar o caminho
+void freeGraph(void) {
+    for (int i = 0; i < N; i++) {
+        free(cost[i]);
+    }
+    free(cost);
+}
+
 int greedy_atsp(int start, int *path) {
     int min;
     int currentCity = start;
@@ -96,21 +102,12 @@ int greedy_atsp(int start, int *path) {
     return totalCost;
 }
 
-// Libera a memória do grafo
-void freeGraph(void) {
-    for (int i = 0; i < N; i++) {
-        free(cost[i]);
-    }
-    free(cost);
-}
-
-// Calcula o custo total do caminho
 int calculatePathCost(int *path, int pathLen) {
     int totalCost = 0;
     for (int i = 0; i < pathLen - 1; i++) {
         totalCost += cost[path[i]][path[i + 1]];
     }
-    totalCost += cost[path[pathLen - 1]][path[0]]; // volta ao início
+    totalCost += cost[path[pathLen - 1]][path[0]];
     return totalCost;
 }
 
@@ -132,13 +129,13 @@ int tabu_search(int *path, int pathLen, int tabu_list_size, int max_iterations) 
 
     int iteration = 0;
     int no_improve_count = 0;
-    int max_no_improve = 100; // Limite para evitar estagnação
+    int max_no_improve = 100;
 
     while (iteration < max_iterations && no_improve_count < max_no_improve) {
         int bestNeighborCost = INT_MAX;
         int best_i = -1, best_j = -1;
 
-        // Busca pelo melhor movimento não tabu
+        
         for (int i = 1; i < pathLen - 1; i++) {
             for (int j = i + 1; j < pathLen; j++) {
                 // Calcula o novo custo após a troca
@@ -157,7 +154,7 @@ int tabu_search(int *path, int pathLen, int tabu_list_size, int max_iterations) 
                     }
                 }
 
-                // Avalia se a solução é aceitável
+
                 if (!isTabu || newCost < bestCost) {
                     if (newCost < bestNeighborCost) {
                         bestNeighborCost = newCost;

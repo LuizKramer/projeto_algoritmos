@@ -3,7 +3,7 @@
 #include <time.h>
 #include "atsp.h"
 
-#define TABU_LIST_SIZE 50
+#define TABU_LIST_SIZE 100
 #define MAX_ITERATIONS 1000
 
 int main(int argc, char *argv[]) {
