@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include "atsp.h"
 
 int **cost = NULL;
 int N = 0;
 
+// Carrega o grafo a partir do arquivo
 void loadGraph(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
@@ -53,6 +55,8 @@ void loadGraph(const char *filename) {
 
     fclose(file);
 }
+
+// Heurística gulosa para inicializar o caminho
 int greedy_atsp(int start, int *path) {
     int min;
     int currentCity = start;
@@ -92,7 +96,7 @@ int greedy_atsp(int start, int *path) {
     return totalCost;
 }
 
-
+// Libera a memória do grafo
 void freeGraph(void) {
     for (int i = 0; i < N; i++) {
         free(cost[i]);
@@ -100,6 +104,7 @@ void freeGraph(void) {
     free(cost);
 }
 
+// Calcula o custo total do caminho
 int calculatePathCost(int *path, int pathLen) {
     int totalCost = 0;
     for (int i = 0; i < pathLen - 1; i++) {
@@ -109,39 +114,95 @@ int calculatePathCost(int *path, int pathLen) {
     return totalCost;
 }
 
-int local_search_2opt(int *path, int pathLen) {
-    int improved = 1;
+// Busca Tabu
+typedef struct {
+    int city1;
+    int city2;
+    int tenure;
+} TabuMove;
 
-    while (improved) {
-        improved = 0;
+int tabu_search(int *path, int pathLen, int tabu_list_size, int max_iterations) {
+    int bestCost = calculatePathCost(path, pathLen);
+    int *bestPath = (int *)malloc(pathLen * sizeof(int));
+    memcpy(bestPath, path, pathLen * sizeof(int));
+
+    TabuMove *tabuList = (TabuMove *)malloc(tabu_list_size * sizeof(TabuMove));
+    memset(tabuList, 0, tabu_list_size * sizeof(TabuMove));
+    int tabuIndex = 0;
+
+    int iteration = 0;
+    int no_improve_count = 0;
+    int max_no_improve = 100; // Limite para evitar estagnação
+
+    while (iteration < max_iterations && no_improve_count < max_no_improve) {
+        int bestNeighborCost = INT_MAX;
+        int best_i = -1, best_j = -1;
+
+        // Busca pelo melhor movimento não tabu
         for (int i = 1; i < pathLen - 1; i++) {
             for (int j = i + 1; j < pathLen; j++) {
-                // Evita troca de início
-                if (j - i == 1) continue;
+                // Calcula o novo custo após a troca
+                int temp = path[i];
+                path[i] = path[j];
+                path[j] = temp;
+                int newCost = calculatePathCost(path, pathLen);
 
-                // Calcula o custo atual
-                int A = path[i - 1], B = path[i];
-                int C = path[j], D = path[(j + 1) % pathLen];
-
-                int before = cost[A][B] + cost[C][D];
-                int after  = cost[A][C] + cost[B][D];
-
-                if (after < before) {
-                    // Inverte segmento [i, j]
-                    while (i < j) {
-                        int temp = path[i];
-                        path[i] = path[j];
-                        path[j] = temp;
-                        i++;
-                        j--;
+                // Verifica se é tabu
+                int isTabu = 0;
+                for (int k = 0; k < tabu_list_size; k++) {
+                    if ((tabuList[k].city1 == path[i] && tabuList[k].city2 == path[j]) ||
+                        (tabuList[k].city1 == path[j] && tabuList[k].city2 == path[i])) {
+                        isTabu = 1;
+                        break;
                     }
-                    improved = 1;
-                    break;
                 }
+
+                // Avalia se a solução é aceitável
+                if (!isTabu || newCost < bestCost) {
+                    if (newCost < bestNeighborCost) {
+                        bestNeighborCost = newCost;
+                        best_i = i;
+                        best_j = j;
+                    }
+                }
+
+                // Desfaz a troca para testar o próximo par
+                temp = path[i];
+                path[i] = path[j];
+                path[j] = temp;
             }
-            if (improved) break;
         }
+
+        // Atualiza o melhor caminho
+        if (best_i != -1 && best_j != -1) {
+            // Aplica a troca
+            int temp = path[best_i];
+            path[best_i] = path[best_j];
+            path[best_j] = temp;
+
+            // Atualiza a lista tabu
+            tabuList[tabuIndex].city1 = path[best_i];
+            tabuList[tabuIndex].city2 = path[best_j];
+            tabuList[tabuIndex].tenure = iteration + tabu_list_size;
+            tabuIndex = (tabuIndex + 1) % tabu_list_size;
+
+            // Verifica se é o melhor caminho encontrado até agora
+            if (bestNeighborCost < bestCost) {
+                bestCost = bestNeighborCost;
+                memcpy(bestPath, path, pathLen * sizeof(int));
+                no_improve_count = 0;
+            } else {
+                no_improve_count++;
+            }
+        }
+
+        iteration++;
     }
 
-    return calculatePathCost(path, pathLen);
+    // Restaura o melhor caminho encontrado
+    memcpy(path, bestPath, pathLen * sizeof(int));
+    free(bestPath);
+    free(tabuList);
+
+    return bestCost;
 }

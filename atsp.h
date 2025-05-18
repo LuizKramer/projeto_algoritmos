@@ -9,7 +9,7 @@ extern int N;
 void loadGraph(const char *filename);
 void freeGraph(void);
 int calculatePathCost(int *path, int pathLen);
-int local_search_2opt(int *path, int pathLen);
-int greedy_atsp(int start, int *path); // novo parâmetro 'path'
+int greedy_atsp(int start, int *path);
+int tabu_search(int *path, int pathLen, int tabu_list_size, int max_iterations);
 
 #endif
