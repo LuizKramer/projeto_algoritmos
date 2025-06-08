@@ -7,6 +7,13 @@
 int **cost = NULL;
 int N = 0;
 
+typedef struct {
+    int city1;
+    int city2;
+    int tenure;
+} TabuMove;
+
+
 // Carrega o grafo a partir do arquivo
 void loadGraph(const char *filename) {
     FILE *file = fopen(filename, "r");
@@ -111,12 +118,20 @@ int calculatePathCost(int *path, int pathLen) {
     return totalCost;
 }
 
-// Busca Tabu
-typedef struct {
-    int city1;
-    int city2;
-    int tenure;
-} TabuMove;
+
+void generate_random_path(int *path, int n) {
+    for (int i = 0; i < n; i++) {
+        path[i] = i;
+    }
+    // Embaralhamento Fisher-Yates
+    for (int i = n - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        int temp = path[i];
+        path[i] = path[j];
+        path[j] = temp;
+    }
+}
+
 
 int tabu_search(int *path, int pathLen, int tabu_list_size, int max_iterations) {
     int bestCost = calculatePathCost(path, pathLen);
@@ -129,7 +144,7 @@ int tabu_search(int *path, int pathLen, int tabu_list_size, int max_iterations) 
 
     int iteration = 0;
     int no_improve_count = 0;
-    int max_no_improve = 100;
+    int max_no_improve = 1000;
 
     while (iteration < max_iterations && no_improve_count < max_no_improve) {
         int bestNeighborCost = INT_MAX;
@@ -176,11 +191,6 @@ int tabu_search(int *path, int pathLen, int tabu_list_size, int max_iterations) 
             int temp = path[best_i];
             path[best_i] = path[best_j];
             path[best_j] = temp;
-            printf("Iteração %d: ", iteration);
-            for (int i = 0; i < pathLen; i++) {
-                printf("%d ", path[i]);
-            }   
-            printf("| Custo: %d\n", calculatePathCost(path, pathLen));
             // Atualiza a lista tabu
             tabuList[tabuIndex].city1 = path[best_i];
             tabuList[tabuIndex].city2 = path[best_j];
@@ -204,6 +214,38 @@ int tabu_search(int *path, int pathLen, int tabu_list_size, int max_iterations) 
     memcpy(path, bestPath, pathLen * sizeof(int));
     free(bestPath);
     free(tabuList);
+
+    return bestCost;
+}
+
+int two_opt(int *path, int pathLen) {
+    int improved = 1;
+    int bestCost = calculatePathCost(path, pathLen);
+
+    while (improved) {
+        improved = 0;
+
+        for (int i = 1; i < pathLen - 1; i++) {
+            for (int k = i + 1; k < pathLen; k++) {
+                // Cria novo caminho com os elementos entre i e k invertidos
+                int newPath[pathLen];
+                for (int j = 0; j < i; j++) newPath[j] = path[j];
+                int dec = 0;
+                for (int j = i; j <= k; j++) newPath[j] = path[k - dec++];
+                for (int j = k + 1; j < pathLen; j++) newPath[j] = path[j];
+
+                int newCost = calculatePathCost(newPath, pathLen);
+                if (newCost < bestCost) {
+                    memcpy(path, newPath, pathLen * sizeof(int));
+                    bestCost = newCost;
+                    improved = 1;
+                    goto loop_restart; // Reinicia as buscas após melhoria
+                }
+            }
+        }
+
+    loop_restart:;
+    }
 
     return bestCost;
 }
