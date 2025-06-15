@@ -24,7 +24,11 @@ int main(int argc, char *argv[]) {
     clock_t start = clock();
 
     // Gera solução inicial e aplica 2-opt
-    greedy_atsp(0, path);
+       int seed = 15102000;
+    srand(seed);
+    printf("Semente usada: %d\n", seed);
+
+    generate_random_path(path, N);  // Caminho aleatório inicial
     int optCost = two_opt(path, N);
 
     // Para de medir tempo

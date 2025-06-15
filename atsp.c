@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <math.h>
 #include "atsp.h"
 
 int **cost = NULL;
@@ -10,9 +11,8 @@ int N = 0;
 typedef struct {
     int city1;
     int city2;
-    int tenure;
+    int tenure; // até qual iteração é tabu
 } TabuMove;
-
 
 // Carrega o grafo a partir do arquivo
 void loadGraph(const char *filename) {
@@ -118,7 +118,6 @@ int calculatePathCost(int *path, int pathLen) {
     return totalCost;
 }
 
-
 void generate_random_path(int *path, int n) {
     for (int i = 0; i < n; i++) {
         path[i] = i;
@@ -132,89 +131,102 @@ void generate_random_path(int *path, int n) {
     }
 }
 
-
 int tabu_search(int *path, int pathLen, int tabu_list_size, int max_iterations) {
     int bestCost = calculatePathCost(path, pathLen);
+    int currentCost = bestCost;
     int *bestPath = (int *)malloc(pathLen * sizeof(int));
+    if (!bestPath) {
+        printf("Erro ao alocar memória para bestPath.\n");
+        return bestCost;
+    }
     memcpy(bestPath, path, pathLen * sizeof(int));
 
     TabuMove *tabuList = (TabuMove *)malloc(tabu_list_size * sizeof(TabuMove));
-    memset(tabuList, 0, tabu_list_size * sizeof(TabuMove));
+    if (!tabuList) {
+        printf("Erro ao alocar memória para tabuList.\n");
+        free(bestPath);
+        return bestCost;
+    }
+
     int tabuIndex = 0;
-
     int iteration = 0;
-    int no_improve_count = 0;
-    int max_no_improve = 1000;
+    int noImprovementCount = 0;
+    int maxNoImprovement = 1000;
 
-    while (iteration < max_iterations && no_improve_count < max_no_improve) {
+    while (iteration < max_iterations && noImprovementCount < maxNoImprovement) {
         int bestNeighborCost = INT_MAX;
         int best_i = -1, best_j = -1;
 
-        
         for (int i = 1; i < pathLen - 1; i++) {
             for (int j = i + 1; j < pathLen; j++) {
-                // Calcula o novo custo após a troca
-                int temp = path[i];
-                path[i] = path[j];
-                path[j] = temp;
-                int newCost = calculatePathCost(path, pathLen);
+                // Candidatos para troca
+                int c1 = path[i];
+                int c2 = path[j];
 
-                // Verifica se é tabu
+                // Verifica se está na tabu list
                 int isTabu = 0;
                 for (int k = 0; k < tabu_list_size; k++) {
-                    if ((tabuList[k].city1 == path[i] && tabuList[k].city2 == path[j]) ||
-                        (tabuList[k].city1 == path[j] && tabuList[k].city2 == path[i])) {
+                    if (((tabuList[k].city1 == c1 && tabuList[k].city2 == c2) ||
+                         (tabuList[k].city1 == c2 && tabuList[k].city2 == c1)) &&
+                         iteration < tabuList[k].tenure) {
                         isTabu = 1;
                         break;
                     }
                 }
 
+                // Aplica swap temporário
+                int temp = path[i];
+                path[i] = path[j];
+                path[j] = temp;
 
-                if (!isTabu || newCost < bestCost) {
-                    if (newCost < bestNeighborCost) {
-                        bestNeighborCost = newCost;
+                int neighborCost = calculatePathCost(path, pathLen);
+
+                // Desfaz o swap
+                temp = path[i];
+                path[i] = path[j];
+                path[j] = temp;
+
+                // Critério de aspiração
+                if (!isTabu || neighborCost < bestCost) {
+                    if (neighborCost < bestNeighborCost) {
+                        bestNeighborCost = neighborCost;
                         best_i = i;
                         best_j = j;
                     }
                 }
-
-                // Desfaz a troca para testar o próximo par
-                temp = path[i];
-                path[i] = path[j];
-                path[j] = temp;
             }
         }
 
-        // Atualiza o melhor caminho
+        // Aplica a melhor troca
         if (best_i != -1 && best_j != -1) {
-            // Aplica a troca
             int temp = path[best_i];
             path[best_i] = path[best_j];
             path[best_j] = temp;
-            // Atualiza a lista tabu
-            tabuList[tabuIndex].city1 = path[best_i];
-            tabuList[tabuIndex].city2 = path[best_j];
+
+            currentCost = bestNeighborCost;
+
+            // Atualiza tabu list com valores antes da troca
+            tabuList[tabuIndex].city1 = path[best_j]; // valor antigo em best_i
+            tabuList[tabuIndex].city2 = path[best_i]; // valor antigo em best_j
             tabuList[tabuIndex].tenure = iteration + tabu_list_size;
+
             tabuIndex = (tabuIndex + 1) % tabu_list_size;
 
-            // Verifica se é o melhor caminho encontrado até agora
-            if (bestNeighborCost < bestCost) {
-                bestCost = bestNeighborCost;
+            if (currentCost < bestCost) {
+                bestCost = currentCost;
                 memcpy(bestPath, path, pathLen * sizeof(int));
-                no_improve_count = 0;
+                noImprovementCount = 0;
             } else {
-                no_improve_count++;
+                noImprovementCount++;
             }
         }
 
         iteration++;
     }
 
-    // Restaura o melhor caminho encontrado
     memcpy(path, bestPath, pathLen * sizeof(int));
     free(bestPath);
     free(tabuList);
-
     return bestCost;
 }
 
